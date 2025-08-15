@@ -7,7 +7,7 @@ defmodule ExEthBls.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      description: "Ethereum BLS signature verification using Lighthouse crypto library",
+      description: "Ethereum BLS signature verification using BLST library",
       deps: deps(),
       package: package(),
       docs: docs(),
