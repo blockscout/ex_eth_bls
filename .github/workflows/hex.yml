@@ -1,0 +1,38 @@
+name: Publish to Hex.pm
+
+on:
+  release:
+    types: [published, released]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build precompiled NIFs"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  publish:
+    name: Publish to Hex.pm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.17"
+          otp-version: "27"
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile
+
+      - name: Run tests
+        run: EX_ETH_BLS_BUILD=true mix test
+
+      - name: Publish to Hex.pm
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run: mix hex.publish --yes

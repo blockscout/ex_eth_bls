@@ -1,0 +1,44 @@
+# Elixir and OTP
+/_build
+/cover
+/deps
+/doc
+/rel
+/.elixir_ls/
+/.fetch
+
+# Rust
+/native/*/target/
+/native/**/target/
+Cargo.lock
+**/*.rs.bk
+
+# Release files
+*.ez
+
+# Generated on crash by the VM
+erl_crash.dump
+
+# Generated on crash by NPM
+npm-debug.log
+
+# Static artifacts (built from Mix tasks)
+/priv/static/
+
+# Since we are building assets from assets/,
+# we ignore priv/static. You may want to comment
+# this depending on your deployment strategy.
+/priv/static/
+
+# Do not commit config/prod.secret.exs if it exists.
+/config/*.secret.exs
+
+# Temporary files, for example, from tests.
+/tmp/
+
+# macOS
+.DS_Store
+
+# Precompiled binaries
+/priv/native/
+checksum-*.exs

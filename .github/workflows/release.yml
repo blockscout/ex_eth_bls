@@ -1,0 +1,89 @@
+name: Build precompiled NIFs
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build_release:
+    name: NIF ${{ matrix.nif }} - ${{ matrix.job.target }} (${{ matrix.job.os }})
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        nif: ["2.16", "2.17"]
+        job:
+          - { target: arm-unknown-linux-gnueabihf, os: ubuntu-latest, use-cross: true }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-latest, use-cross: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-latest, use-cross: true }
+          - { target: riscv64gc-unknown-linux-gnu, os: ubuntu-latest, use-cross: true }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, use-cross: true }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-gnu, os: windows-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Extract project version
+      shell: bash
+      run: |
+        # Get the tag name, or if that's not available, use the commit SHA
+        if [[ "${GITHUB_REF}" =~ ^refs/tags/v(.+)$ ]]; then
+          echo "PROJECT_VERSION=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+        else
+          echo "PROJECT_VERSION=0.0.0+g$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        fi
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.job.target }}
+
+    - name: Install Cross
+      if: matrix.job.use-cross
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cross
+
+    - name: Build the project
+      id: build-crate
+      uses: philss/rustler-precompiled-action@v1.0.1
+      with:
+          project-name: ex_eth_bls
+          project-version: ${{ env.PROJECT_VERSION }}
+          target: ${{ matrix.job.target }}
+          nif-version: ${{ matrix.nif }}
+          use-cross: ${{ matrix.job.use-cross }}
+          project-dir: "native/ex_eth_bls"
+
+    - name: Artifact upload
+      uses: actions/upload-artifact@v4
+      with:
+          name: ${{ steps.build-crate.outputs.file-name }}
+          path: ${{ steps.build-crate.outputs.file-path }}
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: build_release
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Publish archives and packages
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifacts/**/*
+        generate_release_notes: true
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

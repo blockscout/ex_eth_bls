@@ -1,0 +1,16 @@
+[package]
+name = "ex_eth_bls"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ex_eth_bls"
+crate-type = ["cdylib"]
+
+[dependencies]
+rustler = "0.34"
+blst = "0.3"
+sha2 = "0.10"
+
+[features]
+default = []
