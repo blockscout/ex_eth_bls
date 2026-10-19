@@ -161,4 +161,4 @@ This requires:
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the Blockscout Software Licence. See the [LICENSE](LICENSE) file for full terms.

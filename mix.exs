@@ -1,10 +1,11 @@
+# SPDX-License-Identifier: LicenseRef-Blockscout
 defmodule ExEthBls.MixProject do
   use Mix.Project
 
   def project do
     [
       app: :ex_eth_bls,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       description: "Ethereum BLS signature verification using BLST library",
@@ -26,7 +27,7 @@ defmodule ExEthBls.MixProject do
         "mix.exs",
         "README.md"
       ],
-      licenses: ["MIT"],
+      licenses: ["Blockscout Software Licence"],
       links: %{"GitHub" => "https://github.com/blockscout/ex_eth_bls"}
     ]
   end

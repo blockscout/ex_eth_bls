@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LicenseRef-Blockscout
 defmodule ExEthBls.Native do
   @moduledoc false
 

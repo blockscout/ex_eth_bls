@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: LicenseRef-Blockscout
 defmodule ExEthBls do
   @moduledoc """
   ExEthBls provides utility to leverage BLS signatures using Ethereum-compatible
