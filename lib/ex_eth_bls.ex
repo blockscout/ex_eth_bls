@@ -119,6 +119,7 @@ defmodule ExEthBls do
   """
   @spec aggregate_public_keys(public_keys :: list(public_key())) ::
           {:ok, public_key()} | {:error, :no_valid_keys}
+  # credo:disable-for-next-line
   def aggregate_public_keys(public_keys) when is_list(public_keys) and length(public_keys) > 0 do
     case Native.aggregate_public_keys(public_keys) do
       {:error, _reason} -> {:error, :no_valid_keys}
@@ -144,6 +145,7 @@ defmodule ExEthBls do
   """
   @spec aggregate_signatures(signatures :: list(signature())) ::
           {:ok, signature()} | {:error, :no_valid_signatures}
+  # credo:disable-for-next-line
   def aggregate_signatures(signatures) when is_list(signatures) and length(signatures) > 0 do
     case Native.aggregate_signatures(signatures) do
       {:error, _reason} -> {:error, :no_valid_signatures}
@@ -170,6 +172,7 @@ defmodule ExEthBls do
   @spec fast_aggregate_verify(public_keys :: list(public_key()), message :: binary(), signature :: signature()) ::
           boolean()
   def fast_aggregate_verify(public_keys, message, signature)
+      # credo:disable-for-next-line
       when is_list(public_keys) and length(public_keys) > 0 and
              is_binary(message) and
              is_binary(signature) and byte_size(signature) == 96 do
@@ -188,8 +191,9 @@ defmodule ExEthBls do
   @spec aggregate_verify(public_keys :: list(public_key()), messages :: list(binary()), signature :: signature()) ::
           boolean()
   def aggregate_verify(public_keys, messages, signature)
-      when is_list(public_keys) and is_list(messages) and
-             length(public_keys) == length(messages) and length(public_keys) > 0 and
+      # credo:disable-for-lines:2
+      when is_list(public_keys) and is_list(messages) and length(public_keys) == length(messages) and
+             length(public_keys) > 0 and
              is_binary(signature) and byte_size(signature) == 96 do
     case Native.aggregate_verify(public_keys, messages, signature) do
       {:error, _} -> false
