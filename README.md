@@ -19,7 +19,7 @@ Add `ex_eth_bls` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_eth_bls, "~> 0.1.1"}
+    {:ex_eth_bls, "~> 0.1.2"}
   ]
 end
 ```
