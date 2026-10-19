@@ -5,8 +5,8 @@ defmodule ExEthBls.MixProject do
   def project do
     [
       app: :ex_eth_bls,
-      version: "0.2.0",
-      elixir: "~> 1.14",
+      version: "0.1.2",
+      elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       description: "Ethereum BLS signature verification using BLST library",
       deps: deps(),
