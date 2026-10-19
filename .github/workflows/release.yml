@@ -1,15 +1,59 @@
 name: Build precompiled NIFs
 
+# Release procedure (see README "Releasing"):
+#
+#   1. Merge the version bump in mix.exs to main.
+#   2. Run this workflow from the Actions tab on main.
+#
+# The workflow builds the NIF for every target, computes the checksum file
+# from the archives and commits it to main, then creates the GitHub release
+# and tag vX.Y.Z pointing at that commit. The tag therefore contains the
+# checksum file that rustler_precompiled needs, which is what makes
+# `{:ex_eth_bls, github: "blockscout/ex_eth_bls", tag: "vX.Y.Z"}` work for
+# consumers without a Rust toolchain. Do not push the tag or create the
+# release by hand.
+
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    name: Read version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Read version from mix.exs and check the tag is free
+      id: version
+      shell: bash
+      run: |
+        if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+          echo "::error::releases must be run from main (got ${GITHUB_REF})"
+          exit 1
+        fi
+        version=$(sed -nE 's/^[[:space:]]*version: "([^"]+)",.*/\1/p' mix.exs)
+        if [ -z "$version" ]; then
+          echo "::error::could not read version from mix.exs"
+          exit 1
+        fi
+        if git ls-remote --exit-code --tags origin "refs/tags/v${version}" >/dev/null; then
+          echo "::error::tag v${version} already exists; bump the version in mix.exs first"
+          exit 1
+        fi
+        echo "Releasing v${version}"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
   build_release:
     name: NIF ${{ matrix.nif }} - ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -30,16 +74,6 @@ jobs:
     - name: Checkout source code
       uses: actions/checkout@v4
 
-    - name: Extract project version
-      shell: bash
-      run: |
-        # Get the tag name, or if that's not available, use the commit SHA
-        if [[ "${GITHUB_REF}" =~ ^refs/tags/v(.+)$ ]]; then
-          echo "PROJECT_VERSION=${BASH_REMATCH[1]}" >> $GITHUB_ENV
-        else
-          echo "PROJECT_VERSION=0.0.0+g$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        fi
-
     - name: Install Rust toolchain
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -56,7 +90,7 @@ jobs:
       uses: philss/rustler-precompiled-action@v1.0.1
       with:
           project-name: ex_eth_bls
-          project-version: ${{ env.PROJECT_VERSION }}
+          project-version: ${{ needs.prepare.outputs.version }}
           target: ${{ matrix.job.target }}
           nif-version: ${{ matrix.nif }}
           use-cross: ${{ matrix.job.use-cross }}
@@ -69,21 +103,104 @@ jobs:
           path: ${{ steps.build-crate.outputs.file-path }}
 
   publish:
-    name: Publish
+    name: Commit checksums and publish release
     runs-on: ubuntu-latest
-    needs: build_release
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [prepare, build_release]
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CHECKSUM_FILE: checksum-Elixir.ExEthBls.Native.exs
     steps:
+    - name: Checkout main
+      uses: actions/checkout@v4
+      with:
+        ref: main
+
     - name: Download artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
 
-    - name: Publish archives and packages
+    # Same format as `mix rustler_precompiled.download ExEthBls.Native --all`
+    # writes (rustler_precompiled evaluates the file as an Elixir map), but
+    # computed straight from the archives we just built, so it needs neither
+    # Elixir nor a published release.
+    - name: Generate checksum file
+      shell: bash
+      run: |
+        {
+          echo "%{"
+          find artifacts -type f -name '*.tar.gz' -print0 \
+            | xargs -0 sha256sum \
+            | while read -r sum path; do
+                printf '  "%s" => "sha256:%s",\n' "$(basename "$path")" "$sum"
+              done \
+            | sort
+          echo "}"
+        } > "$CHECKSUM_FILE"
+        cat "$CHECKSUM_FILE"
+        count=$(grep -c '\.tar\.gz" => "sha256:' "$CHECKSUM_FILE")
+        # 2 NIF versions x 10 targets in the build matrix above
+        if [ "$count" -ne 20 ]; then
+          echo "::error::expected 20 archives in $CHECKSUM_FILE, found $count"
+          exit 1
+        fi
+        if ! grep -q -- "-v${VERSION}-nif-" "$CHECKSUM_FILE"; then
+          echo "::error::archives in $CHECKSUM_FILE do not match version ${VERSION}"
+          exit 1
+        fi
+
+    # Pushed with GITHUB_TOKEN, so this commit does not trigger the CI
+    # workflow; it only changes the checksum file.
+    - name: Commit checksum file to main
+      id: commit
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add "$CHECKSUM_FILE"
+        git commit -m "Add precompiled NIF checksums for v${VERSION}"
+        git push origin HEAD:main
+        echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub release and tag
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: v${{ env.VERSION }}
+        target_commitish: ${{ steps.commit.outputs.sha }}
         files: artifacts/**/*
         generate_release_notes: true
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Compiles and tests the new tag exactly the way a consumer does: without
+  # EX_ETH_BLS_BUILD and without Rust, so the NIF for the runner is downloaded
+  # from the release and verified against the committed checksum file.
+  verify:
+    name: Verify precompiled release
+    runs-on: ubuntu-latest
+    needs: [prepare, publish]
+    env:
+      MIX_ENV: test
+    steps:
+    - name: Checkout release tag
+      uses: actions/checkout@v4
+      with:
+        ref: v${{ needs.prepare.outputs.version }}
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@v1
+      with:
+        elixir-version: "1.20"
+        otp-version: "28"
+
+    - name: Install dependencies
+      run: mix deps.get
+
+    - name: Compile with precompiled NIF
+      run: mix compile --warnings-as-errors
+
+    - name: Run tests
+      run: mix test
