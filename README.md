@@ -19,7 +19,7 @@ Add `ex_eth_bls` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ex_eth_bls, "~> 0.1.1"}
+    {:ex_eth_bls, "~> 0.1.2"}
   ]
 end
 ```
@@ -158,6 +158,40 @@ This requires:
 
 - Rust toolchain (1.70+)
 - C compiler (for BLST)
+
+## Releasing
+
+Releases are fully driven by CI. Do **not** create the GitHub release by hand:
+the Hex publish step depends on the precompiled NIF archives already being
+attached to the release, and a manually created release used to trigger
+publishing before those archives existed.
+
+1. Bump `version` in `mix.exs` (and the version in the Installation section
+   above), merge to `main`.
+2. Tag the merge commit and push the tag:
+
+   ```bash
+   git tag vX.Y.Z && git push origin vX.Y.Z
+   ```
+
+3. The `Build precompiled NIFs` workflow (`.github/workflows/release.yml`) then:
+   - builds the NIF for every supported target and NIF version;
+   - creates the GitHub release `vX.Y.Z` and attaches all archives to it;
+   - calls the `Publish to Hex.pm` workflow (`.github/workflows/hex.yml`), which
+     checks out the tag, builds the NIF locally and runs the tests, downloads
+     every archive from the release to generate `checksum-Elixir.ExEthBls.Native.exs`
+     (`mix rustler_precompiled.download ExEthBls.Native --all`), and finally
+     runs `mix hex.publish`.
+
+The checksum file is intentionally gitignored: it is generated from the
+release artifacts and shipped only inside the Hex package, where
+`rustler_precompiled` needs it to verify the downloaded NIF.
+
+If the Hex publish step fails or is skipped for a tag whose GitHub release
+already has all archives attached, run the `Publish to Hex.pm` workflow
+manually from the Actions tab with that tag as input. It uses the workflow
+definition from `main`, so this also works for tags created before a
+workflow fix.
 
 ## License
 

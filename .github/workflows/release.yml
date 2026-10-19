@@ -35,9 +35,9 @@ jobs:
       run: |
         # Get the tag name, or if that's not available, use the commit SHA
         if [[ "${GITHUB_REF}" =~ ^refs/tags/v(.+)$ ]]; then
-          echo "PROJECT_VERSION=${BASH_REMATCH[1]}" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
         else
-          echo "PROJECT_VERSION=0.0.0+g$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+          echo "PROJECT_VERSION=0.0.0+g$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
         fi
 
     - name: Install Rust toolchain
@@ -87,3 +87,17 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Hex publishing must wait until every NIF archive is attached to the GitHub
+  # release: it downloads them all to build the checksum file that ships in the
+  # Hex tarball, and it compiles the project in precompiled mode (which fetches
+  # the runner's NIF from the release) before publishing.
+  publish_hex:
+    name: Publish to Hex.pm
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/hex.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
