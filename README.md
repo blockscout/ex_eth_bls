@@ -20,7 +20,7 @@ The package is distributed from GitHub. Add it to your list of dependencies in
 ```elixir
 def deps do
   [
-    {:ex_eth_bls, github: "blockscout/ex_eth_bls", tag: "v0.1.2"}
+    {:ex_eth_bls, github: "blockscout/ex_eth_bls", tag: "v0.1.1"}
   ]
 end
 ```
