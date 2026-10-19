@@ -8,7 +8,7 @@ name = "ex_eth_bls"
 crate-type = ["cdylib"]
 
 [dependencies]
-rustler = "0.34"
+rustler = "0.38"
 blst = "0.3"
 sha2 = "0.10"
 

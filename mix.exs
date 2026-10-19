@@ -51,7 +51,7 @@ defmodule ExEthBls.MixProject do
   defp deps do
     [
       {:stream_data, "~> 1.1", only: [:test]},
-      {:ex_doc, "~> 0.34.1", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.40.4", only: :dev, runtime: false},
       {:benchee, "~> 1.3", only: :test},
       {:rustler, ">= 0.0.0", optional: true},
       {:rustler_precompiled, "~> 0.8"},
